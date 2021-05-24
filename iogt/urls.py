@@ -18,6 +18,7 @@ urlpatterns = [
     path('search/', search_views.search, name='search'),
     path('users/', include(users_urls), name='users_urls'),
     path('accounts/', include('allauth.urls'), name='allauth-urls'),
+    path('messaging/', include('messaging.urls'), name='messaging-urls'),
 ]
 
 
