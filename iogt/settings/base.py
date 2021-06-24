@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'comments',
     'iogt_content_migration',
     'messaging',
+    'translation',
 
     'wagtail_localize',
     'wagtail_localize.locales',
