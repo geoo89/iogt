@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'wagtailmenus',
     'wagtailmedia',
     'wagtailmarkdown',
+    'wagtail_transfer',
 
     'django_comments_xtd',
     'django_comments',
@@ -245,5 +246,14 @@ WAGTAIL_CONTENT_LANGUAGES = LANGUAGES = [
     ('en', _('English')),
     ('fr', _('French')),
 ]
+
+WAGTAILTRANSFER_SOURCES = {
+    'central': {
+        'BASE_URL': 'http://iogt-django-dev.idems.international/wagtail-transfer/',
+        'SECRET_KEY': '4ac4822149691395773b2a8942e1a472',
+    },
+}
+
+WAGTAILTRANSFER_SECRET_KEY = '4ac4822149691395773b2a8942e1a472'
 
 from .profanity_settings import *
