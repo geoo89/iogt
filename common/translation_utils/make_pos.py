@@ -64,7 +64,7 @@ def make_pos_run():
             translation_list = translationsjs
 
         for translation, phrase in zip(translation_list, row[4:]):
-            if row[0] == 'Section':
+            if row[0] == 'Section' or not phrase:
                 continue
             if row[0] == '':
                 entry = polib.POEntry(

@@ -4,20 +4,21 @@ import polib
 class Translation:
     def __init__(self, row):
         self.phrase = row[3]
-        self.bad_locales = row[1].split(',')
-        self.bad_source_phrase = row[2]
+        self.is_in_use = row[1]
+        self.comment = row[2]
         self.tag = row[0]
         self.translations = row[3:]
 
     def needs_improvement(self):
-        return self.bad_source_phrase != ''
+        return False
+        # return self.bad_source_phrase != ''
 
     def is_phrase(row):
         return row[0] in ['', 'sg', 'pl']
 
 def lookup_status(msg, translations, replacement_strings=[]):
     status = 'needs translation'
-    if msg in translations:
+    if msg in translations and all(translations[msg].translations):
         tr = translations[msg]
         if tr.needs_improvement():
             status = 'has translation (improvised)'
@@ -33,7 +34,7 @@ def lookup_status(msg, translations, replacement_strings=[]):
                     print(f'Warning: Replacement string "{replacement_string}" for message "{msg}" not in translations.')
     return status
 
-def process_message(msg, po_msgs, logged_phrases, status_sheet, translations, is_js=False):
+def process_message(msg, po_msgs, logged_phrases, status_sheet, translations, translation_data, is_js=False, tcomment='', sg_pl=''):
     po_msgs.add(msg)
     if msg not in logged_phrases:
         status = lookup_status(msg, translations)
@@ -53,13 +54,25 @@ def process_message(msg, po_msgs, logged_phrases, status_sheet, translations, is
             if status_row[4] == 'needs translation' and status_row[3] == 'django':
                 status_row[4] = 'needs translation (partial)'
 
-def process_po(po, po_msgs, logged_phrases, status_sheet, translations, is_js=False):
+    if msg not in translations.keys():
+        if status_row[4] != 'unused' and (tag == 'translate' or tag == 'remove'):
+            translation_data.append([sg_pl, True, tcomment, msg] + ['']*(len(translation_data[0])-4))
+    else:
+        translation = next(translation for translation in translation_data if translation[3] == msg)
+        translation[1] = True
+        if tcomment:
+            translation[2] = tcomment
+
+
+def process_po(po, po_msgs, logged_phrases, status_sheet, translations, translation_data, is_js=False):
     for entry in po:
         if entry.obsolete:
             continue
-        process_message(entry.msgid, po_msgs, logged_phrases, status_sheet, translations, is_js)
         if entry.msgid_plural:
-            process_message(entry.msgid_plural, po_msgs, logged_phrases, status_sheet, translations, is_js)
+            process_message(entry.msgid, po_msgs, logged_phrases, status_sheet, translations, translation_data, is_js, entry.tcomment, 'sg')
+            process_message(entry.msgid_plural, po_msgs, logged_phrases, status_sheet, translations, translation_data, is_js, entry.tcomment, 'pl')
+        else:
+            process_message(entry.msgid, po_msgs, logged_phrases, status_sheet, translations, translation_data, is_js, entry.tcomment, '')
 
 def update_status_run():
 
@@ -68,20 +81,21 @@ def update_status_run():
     logged_phrases = {status_sheet[i][0] : i for i in range(1, len(status_sheet))}
 
     sheet2 = open("common/translation_utils/translations.csv", newline='')
-    translations = {r[3] : Translation(r) for r in list(csv.reader(sheet2)) if Translation.is_phrase(r)}
+    translation_data = list(csv.reader(sheet2))
+    translations = {r[3] : Translation(r) for r in translation_data if Translation.is_phrase(r)}
     po_msgs = set()
 
     # process those rows that are in the PO file
     po = polib.pofile('locale/django.pot', encoding='UTF-8')
-    process_po(po, po_msgs, logged_phrases, status_sheet, translations)
+    process_po(po, po_msgs, logged_phrases, status_sheet, translations, translation_data)
     pojs = polib.pofile('locale/djangojs.pot', encoding='UTF-8')
-    process_po(pojs, po_msgs, logged_phrases, status_sheet, translations, is_js=True)
+    process_po(pojs, po_msgs, logged_phrases, status_sheet, translations, translation_data, is_js=True)
 
     # Process the remaining rows
     for status_row in status_sheet[1:]:
         if status_row[0] not in po_msgs:
             if status_row[3] == 'django':
-                process_message(status_row[0], po_msgs, logged_phrases, status_sheet, translations)
+                process_message(status_row[0], po_msgs, logged_phrases, status_sheet, translations, translation_data)
             else:
                 status_row[4] = 'unused'
 
@@ -89,3 +103,10 @@ def update_status_run():
     out_sheet = open("common/translation_utils/translation_status.csv", 'w', newline='')
     writer = csv.writer(out_sheet)
     writer.writerows(status_sheet)
+
+    out_sheet2 = open("common/translation_utils/translations.csv", 'w', newline='')
+    writer = csv.writer(out_sheet2)
+    writer.writerows(translation_data)
+
+if __name__ == '__main__':
+    update_status_run()
